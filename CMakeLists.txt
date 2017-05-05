@@ -49,3 +49,6 @@ target_link_libraries(${PROJECT_NAME} glfw
                       )
 set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${PROJECT_NAME})
+
+configure_file(Glitter/Textures/bunny.jpg bunny.jpg COPYONLY)
+configure_file(Glitter/Textures/brick_normals.png brick_normals.png COPYONLY)

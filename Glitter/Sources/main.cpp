@@ -197,7 +197,7 @@ int main(int argc, char * argv[]) {
 
 	// load texture
 	int w, h, comp;
-	unsigned char* image = stbi_load("/tmp/Textures/bunny.jpg", &w, &h, &comp, STBI_rgb);
+	unsigned char* image = stbi_load("bunny.jpg", &w, &h, &comp, STBI_rgb);
 	if (image == nullptr) std::cout << stbi_failure_reason() << std::endl;
 
 	// generate texture
