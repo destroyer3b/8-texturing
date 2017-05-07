@@ -44,26 +44,51 @@ const GLchar* vertexSource =
 "layout (location=2) in vec2 texCoord;"								// and 2 texture coordinates
 "layout (location=3) in vec3 tangent;"
 "layout (location=4) in vec3 bitangent;"
+
+// output data: interpolated for each fragment
 "out vec3 Color;"                 // will pass color along pipeline
+"out vec3 FragPos;"								// position in world space (after model transformation)
 "out vec2 TexCoord;"							// and texture coordinates
+"out vec3 EyeDir_tangentspace;"
+"out vec3 LightDir_tangentspace;"
+
 "uniform mat4 model;"             // uniform = the same for all vertices
 "uniform mat4 view;"
+"uniform vec3 lightPos;"
+
 "void main()"
 "{"
-"    Color = color;"              // just pass color along without modifying it
+"		 FragPos = vec3(model * vec4(position, 1.0f));"
+
+// TODO: transform tangent, bitangent, position, eyedir, lightdir from model space (given) into camera space
+// TODO: get camerspace normal from tangent and bitangent crossproduct. Construct TBN camerspace-->tangentspace matrix
+// TODO: transform eyedir, lightdir from cameraspace to tangentspace
+
 "    TexCoord = texCoord;"
 "    gl_Position = view * model * vec4(position, 1.0);"   // gl_Position is special variable for final position
 "}";
 
 const GLchar* fragmentSource =
-"#version 150 core\n"
+"#version 330 core\n"
 "in vec3 Color;"
+"in vec3 FragPos;"
 "in vec2 TexCoord;"
+"in vec3 EyeDir_tangentspace;"
+"in vec3 LightDir_tangentspace;"
+
+"uniform sampler2D textureMap;"
+"uniform sampler2D normalMap;"
+"uniform vec3 lightColor;"
+"uniform vec3 objectColor;"
+
 "out vec4 outColor;"
-"uniform sampler2D theTexture;"
+
 "void main()"
 "{"
-"    outColor = texture(theTexture, TexCoord);"
+		 "vec3 ambientStrength = vec3(0.4, 0.4, 0.4);"
+// TODO: get material diffuse color from textureMap (bunny) and normal from normalMap (bricks)
+// TODO: calculate diffuse, specular and ambient components using tangentspace eyedir and lightdir and diffuse color and normal from textures
+"		 outColor = vec4(diffuse + ambient + specular, 1.0);"
 "}";
 
 // vertex data
@@ -76,7 +101,7 @@ GLfloat vertices [] = {
   RIGHT, BOTTOM, FRONT, RED, BOTTOM_RIGHT,
   RIGHT, TOP, FRONT, RED, TOP_RIGHT,
  
-	 LEFT, TOP, BACK, BLUE, TOP_LEFT,       // left
+	LEFT, TOP, BACK, BLUE, TOP_LEFT,       // left
   LEFT, BOTTOM, BACK, BLUE, BOTTOM_LEFT,
   LEFT, BOTTOM, FRONT, BLUE, BOTTOM_RIGHT,
   
@@ -120,12 +145,13 @@ GLfloat vertices [] = {
 void computeTangentBasis(GLfloat* vertices, int nvertices, int stride, std::vector<glm::vec3>& tangents, std::vector<glm::vec3>& bitangents) {
 	int i = 0, t=0;
 	while (i < nvertices) {
-		glm::vec3 v0(vertices[i+0], vertices[i+1], vertices[i+2]);	i=i+8; // i+8 will skip to next vertex
-		glm::vec3 v1(vertices[i+0], vertices[i+1], vertices[i+2]); i=i+8;
-		glm::vec3 v2(vertices[i+0], vertices[i+1], vertices[i+2]); i=i+8;
+		glm::vec3 v0(vertices[i+0], vertices[i+1], vertices[i+2]); i+=stride; // i+8 will skip to next vertex
+		glm::vec3 v1(vertices[i+0], vertices[i+1], vertices[i+2]); i+=stride;
+		glm::vec3 v2(vertices[i+0], vertices[i+1], vertices[i+2]); i+=stride;
 
 		glm::vec3 tangent, bitangent;
 
+		std::cout << "triangle number " << t << std::endl;
 		// vertices are either in order
 		// top/left - bottom/left - bottom/right (even triangles)
 		// or top/left - bottom/right - top/right (odd triangles)
@@ -143,7 +169,6 @@ void computeTangentBasis(GLfloat* vertices, int nvertices, int stride, std::vect
 			tangents.push_back(tangent);
 			bitangents.push_back(bitangent);
 		}
-
 		t++;
 	}
 }
@@ -250,29 +275,36 @@ int main(int argc, char * argv[]) {
   // model matrix
   GLint modelTransform = glGetUniformLocation(shaderProgram, "model");
   glm::mat4 rotate_model = glm::rotate(glm::mat4(1.0f), 15.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-  
   // view matrix
   glm::mat4 ortho_model = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
   GLint viewTransform = glGetUniformLocation(shaderProgram, "view");
   glUniformMatrix4fv(viewTransform, 1, GL_FALSE, glm::value_ptr(ortho_model));
 
-	// load texture
-	int w, h, comp;
-	unsigned char* image = stbi_load("bunny.jpg", &w, &h, &comp, STBI_rgb);
-	if (image == nullptr) std::cout << stbi_failure_reason() << std::endl;
+	// light color, position
+	GLint lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
+	GLint lightPosLoc = glGetUniformLocation(shaderProgram, "lightPos");
+	glUniform3f(lightColorLoc, 1.0f, 1.0f, 1.0f);
+	glUniform3f(lightPosLoc,  1.0f, 1.0f, 1.0f);
 
-	// generate texture
-	GLuint texture;
-	glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-	glGenerateMipmap(GL_TEXTURE_2D);
-
+	// generate textures
+	GLuint textures [2];
+	glGenTextures(2, textures);
+	// Texture 1 (diffuse color) (bunny)
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textures[0]);
 	// texture parameters
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// load, create texture
+	int w0, h0, comp0;
+	unsigned char* image = stbi_load("bunny.jpg", &w0, &h0, &comp0, STBI_rgb);
+	if (image == nullptr) std::cout << stbi_failure_reason() << std::endl;
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w0, h0, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+	glUniform1i(glGetUniformLocation(shaderProgram, "textureMap"), 0);
+	// Texture 2 (bump map) (brick)
+	// TODO: same as first texture
 	
   // Rendering Loop
   float r = 0.1f;
@@ -299,8 +331,6 @@ int main(int argc, char * argv[]) {
   glDeleteShader(vertexShader);
   glDeleteBuffers(1, &verticesbuffer);
   glDeleteVertexArrays(1, &vao);
-
-	// don't ignore this branch
   
   return EXIT_SUCCESS;
 }
