@@ -53,8 +53,8 @@ const GLchar* vertexSource =
 "    Color = color;"              // just pass color along without modifying it
 "    TexCoord = texCoord;"
 "    gl_Position = view * model * vec4(position, 1.0);"   // gl_Position is special variable for final position
-"}";                                                    // must be in homogeneous coordinates -- put in 0 for z and 1 for w
-// multiply by model matrix to transform
+"}";
+
 const GLchar* fragmentSource =
 "#version 150 core\n"
 "in vec3 Color;"
@@ -118,15 +118,14 @@ GLfloat vertices [] = {
 };
 
 void computeTangentBasis(GLfloat* vertices, int nvertices, int stride, std::vector<glm::vec3>& tangents, std::vector<glm::vec3>& bitangents) {
-	int i = 0;
-	while (i < nvertices*stride) {
+	int i = 0, t=0;
+	while (i < nvertices) {
 		glm::vec3 v0(vertices[i+0], vertices[i+1], vertices[i+2]);	i=i+8; // i+8 will skip to next vertex
 		glm::vec3 v1(vertices[i+0], vertices[i+1], vertices[i+2]); i=i+8;
 		glm::vec3 v2(vertices[i+0], vertices[i+1], vertices[i+2]); i=i+8;
 
 		glm::vec3 tangent, bitangent;
 
-		int t = i/stride/3;		// 8 floats per vertex, 3 vertices per triangle
 		// vertices are either in order
 		// top/left - bottom/left - bottom/right (even triangles)
 		// or top/left - bottom/right - top/right (odd triangles)
@@ -144,6 +143,8 @@ void computeTangentBasis(GLfloat* vertices, int nvertices, int stride, std::vect
 			tangents.push_back(tangent);
 			bitangents.push_back(bitangent);
 		}
+
+		t++;
 	}
 }
 
@@ -240,11 +241,11 @@ int main(int argc, char * argv[]) {
 	// tangents
 	glEnableVertexAttribArray(3);
 	glBindBuffer(GL_ARRAY_BUFFER, tangentbuffer);
-	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 3, (void*)0);
+	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 	// bitangents
 	glEnableVertexAttribArray(4);
 	glBindBuffer(GL_ARRAY_BUFFER, bitangentbuffer);
-	glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 3, (void*)0);
+	glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
   
   // model matrix
   GLint modelTransform = glGetUniformLocation(shaderProgram, "model");
