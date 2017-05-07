@@ -1,15 +1,5 @@
-# Lab 7: Experiment with texture mapping
+# Lab 8: Bump mapping
 
 ## Starting point
 
-The main branch in this repository renders a rotating cube with each side colored a different color.
-
-The "texture" branch renders the same cube with each side textured with a picture of a bunny.
-
-## Modification
-
-Modify the texture coordinates and parameters to produce the cube "hw.mov". You may have to experiment to get the correct configuration.
-
-## Due date
-
-Thursday, May 4 11:59pm
+The texture branch in this repository renders a rotating cube with each side textured with a picture of a bunny. The "bump" branch is the starting point for modifying the code to load normals from a separate texture. `git checkout bump` to see that code and instructions.
