@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <vector>
 
 #define RED 1.0f, 0.0f, 0.0f            // define macros for convenience
 #define BLUE 0.0f, 0.0f, 1.0f
@@ -37,10 +38,12 @@
 #define BOTTOM_RIGHT 1.0f, 0.0f
 
 const GLchar* vertexSource =
-"#version 150 core\n"             // glsl version
-"in vec3 position;"               // expects 2 values for position
-"in vec3 color;"                  // and 3 values for color
-"in vec2 texCoord;"								// and 2 texture coordinates
+"#version 330 core\n"             // glsl version
+"layout (location=0) in vec3 position;"               // expects 2 values for position
+"layout (location=1) in vec3 color;"                  // and 3 values for color
+"layout (location=2) in vec2 texCoord;"								// and 2 texture coordinates
+"layout (location=3) in vec3 tangent;"
+"layout (location=4) in vec3 bitangent;"
 "out vec3 Color;"                 // will pass color along pipeline
 "out vec2 TexCoord;"							// and texture coordinates
 "uniform mat4 model;"             // uniform = the same for all vertices
@@ -114,6 +117,36 @@ GLfloat vertices [] = {
   RIGHT, BOTTOM, FRONT, YELLOW, TOP_RIGHT,
 };
 
+void computeTangentBasis(GLfloat* vertices, int nvertices, int stride, std::vector<glm::vec3>& tangents, std::vector<glm::vec3>& bitangents) {
+	int i = 0;
+	while (i < nvertices*stride) {
+		glm::vec3 v0(vertices[i+0], vertices[i+1], vertices[i+2]);	i=i+8; // i+8 will skip to next vertex
+		glm::vec3 v1(vertices[i+0], vertices[i+1], vertices[i+2]); i=i+8;
+		glm::vec3 v2(vertices[i+0], vertices[i+1], vertices[i+2]); i=i+8;
+
+		glm::vec3 tangent, bitangent;
+
+		int t = i/stride/3;		// 8 floats per vertex, 3 vertices per triangle
+		// vertices are either in order
+		// top/left - bottom/left - bottom/right (even triangles)
+		// or top/left - bottom/right - top/right (odd triangles)
+		// the x direction (tangents) should be left-right
+		// the y direction (bitangents) should be bottom-top
+		if (t % 2 == 0) {
+			tangent = v2 /* bottom right */ - v1 /* bottom left */;
+			bitangent = v0 /* top left */ - v1 /* bottom left */;
+		} else {
+			tangent = v2 /* top right*/ - v0 /* top left */;
+			bitangent = v2 /* top right */ - v1 /* bottom right */;
+		}
+
+		for (int j = 0; j < 3; j++) {
+			tangents.push_back(tangent);
+			bitangents.push_back(bitangent);
+		}
+	}
+}
+
 // callback for keyboard input
 void key_callback(GLFWwindow* mWindow, int key, int scancode, int action, int mods)
 {
@@ -151,10 +184,31 @@ int main(int argc, char * argv[]) {
   glBindVertexArray(vao);
   
   // Create a Vertex Buffer Object and copy the vertex data to it
-  GLuint vbo;
-  glGenBuffers(1, &vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  GLuint verticesbuffer;
+  glGenBuffers(1, &verticesbuffer);
+  glBindBuffer(GL_ARRAY_BUFFER, verticesbuffer);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	// Tangent data
+	std::vector<glm::vec3> tangents, bitangents;
+	computeTangentBasis(vertices, sizeof(vertices)/sizeof(vertices[0]),
+		8, tangents, bitangents);
+	GLfloat tangent_arr[tangents.size()*3];
+	GLfloat bitangent_arr[bitangents.size()*3];
+	for (int i = 0; i < tangents.size(); i++) {
+		for (int j = 0; j < 3; j++) {
+			tangent_arr[i*3+j] = tangents[i][j];
+			bitangent_arr[i*3+j] = bitangents[i][j];
+		}
+	}
+	GLuint tangentbuffer;
+	glGenBuffers(1, &tangentbuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, tangentbuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(tangent_arr), tangent_arr, GL_STATIC_DRAW);
+	GLuint bitangentbuffer;
+	glGenBuffers(1, &bitangentbuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, bitangentbuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(bitangent_arr), bitangent_arr, GL_STATIC_DRAW);
   
   // Create and compile the vertex shader
   GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -174,17 +228,23 @@ int main(int argc, char * argv[]) {
   
   // Specify the layout of the vertex data
   // position
-  GLint posAttrib = glGetAttribLocation(shaderProgram, "position");
-  glEnableVertexAttribArray(posAttrib);
-  glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);  // attribute location, # values, value type, normalize?, stride, offset
+  glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, verticesbuffer);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);  // attribute location, # values, value type, normalize?, stride, offset
   // color
-  GLint colAttrib = glGetAttribLocation(shaderProgram, "color");
-  glEnableVertexAttribArray(colAttrib);
-  glVertexAttribPointer(colAttrib, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
 	// texture coords
-	GLint texAttrib = glGetAttribLocation(shaderProgram, "texCoord");
-	glEnableVertexAttribArray(texAttrib);
-	glVertexAttribPointer(texAttrib, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+	// tangents
+	glEnableVertexAttribArray(3);
+	glBindBuffer(GL_ARRAY_BUFFER, tangentbuffer);
+	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 3, (void*)0);
+	// bitangents
+	glEnableVertexAttribArray(4);
+	glBindBuffer(GL_ARRAY_BUFFER, bitangentbuffer);
+	glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 3, (void*)0);
   
   // model matrix
   GLint modelTransform = glGetUniformLocation(shaderProgram, "model");
@@ -236,7 +296,7 @@ int main(int argc, char * argv[]) {
   glDeleteProgram(shaderProgram);
   glDeleteShader(fragmentShader);
   glDeleteShader(vertexShader);
-  glDeleteBuffers(1, &vbo);
+  glDeleteBuffers(1, &verticesbuffer);
   glDeleteVertexArrays(1, &vao);
   
   return EXIT_SUCCESS;
