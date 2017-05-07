@@ -299,6 +299,8 @@ int main(int argc, char * argv[]) {
   glDeleteShader(vertexShader);
   glDeleteBuffers(1, &verticesbuffer);
   glDeleteVertexArrays(1, &vao);
+
+	// don't ignore this branch
   
   return EXIT_SUCCESS;
 }
