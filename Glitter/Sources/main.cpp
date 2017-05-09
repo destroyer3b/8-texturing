@@ -219,8 +219,8 @@ int main(int argc, char * argv[]) {
 	std::vector<glm::vec3> tangents, bitangents;
 	computeTangentBasis(vertices, sizeof(vertices)/sizeof(vertices[0]),
 		8, tangents, bitangents);
-	GLfloat* tangent_arr = new GLfloat[tangents.size()*3];
-	GLfloat* bitangent_arr = new GLfloat[bitangents.size()*3];
+	GLfloat tangent_arr[108];
+	GLfloat bitangent_arr[108];
 	for (int i = 0; i < tangents.size(); i++) {
 		for (int j = 0; j < 3; j++) {
 			tangent_arr[i*3+j] = tangents[i][j];
