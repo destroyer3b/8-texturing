@@ -219,8 +219,8 @@ int main(int argc, char * argv[]) {
 	std::vector<glm::vec3> tangents, bitangents;
 	computeTangentBasis(vertices, sizeof(vertices)/sizeof(vertices[0]),
 		8, tangents, bitangents);
-	GLfloat tangent_arr[tangents.size()*3];
-	GLfloat bitangent_arr[bitangents.size()*3];
+	GLfloat* tangent_arr = new GLfloat[tangents.size()*3];
+	GLfloat* bitangent_arr = new GLfloat[bitangents.size()*3];
 	for (int i = 0; i < tangents.size(); i++) {
 		for (int j = 0; j < 3; j++) {
 			tangent_arr[i*3+j] = tangents[i][j];
@@ -230,11 +230,11 @@ int main(int argc, char * argv[]) {
 	GLuint tangentbuffer;
 	glGenBuffers(1, &tangentbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, tangentbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(tangent_arr), tangent_arr, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, tangents.size()*3, tangent_arr, GL_STATIC_DRAW);
 	GLuint bitangentbuffer;
 	glGenBuffers(1, &bitangentbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, bitangentbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(bitangent_arr), bitangent_arr, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, bitangents.size()*3, bitangent_arr, GL_STATIC_DRAW);
   
   // Create and compile the vertex shader
   GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
