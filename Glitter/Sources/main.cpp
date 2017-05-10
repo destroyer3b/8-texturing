@@ -305,7 +305,18 @@ int main(int argc, char * argv[]) {
 	glUniform1i(glGetUniformLocation(shaderProgram, "textureMap"), 0);
 	// Texture 2 (bump map) (brick)
 	// TODO: same as first texture
-	
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, textures[1]);
+	// texture parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// load, create texture
+	image = stbi_load("brick_normals.png", &w0, &h0, &comp0, STBI_rgb);
+	if (image == nullptr) std::cout << stbi_failure_reason() << std::endl;
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w0, h0, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+	glUniform1i(glGetUniformLocation(shaderProgram, "normalMap"), 0);
   // Rendering Loop
   float r = 0.1f;
   while (glfwWindowShouldClose(mWindow) == false) {
